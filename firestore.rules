@@ -1,0 +1,87 @@
+rules_version = '2';
+
+// =====================================================================
+// Adgangsregler for Efterskole Busbooking (Cloud Firestore)
+// Indsættes i Firebase: Firestore → Rules → erstat alt → Publish.
+//
+//   Lærer:     ser og bestiller egne ture; kan ændre/annullere egne ture,
+//              men ikke godkende dem eller tildele bus/chauffør.
+//   Chauffør:  ser kun godkendte ture, hvor vedkommende kører.
+//   Admin:     fuld adgang.
+//   Alle andre (også folk med en Google/Firebase-konto): ingen adgang.
+// =====================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function myEmail() {
+      return request.auth.token.email.lower();
+    }
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(myEmail());
+    }
+    // Logget ind, e-mail bekræftet, og oprettet som aktiv bruger af admin.
+    function isUser() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && exists(profilePath())
+        && get(profilePath()).data.active == true;
+    }
+    function role() {
+      return get(profilePath()).data.role;
+    }
+    function isAdmin() {
+      return isUser() && role() == 'admin';
+    }
+    function isTeacher() {
+      return isUser() && role() == 'teacher';
+    }
+    // Felter en lærer selv må ændre på en tur.
+    function teacherFields() {
+      return ['destination', 'date', 'passengers', 'outTime', 'returnTime', 'note', 'status', 'statusNote'];
+    }
+
+    // Brugere: alle brugere kan se navne (bruges i lister); kun admin kan ændre.
+    match /users/{email} {
+      allow read: if isUser();
+      allow write: if isAdmin();
+    }
+
+    // Busser: alle brugere kan se; kun admin kan ændre.
+    match /buses/{busId} {
+      allow read: if isUser();
+      allow write: if isAdmin();
+    }
+
+    match /trips/{tripId} {
+      allow read: if isAdmin()
+        || (isUser() && resource.data.createdBy == myEmail())
+        || (isUser() && resource.data.status == 'approved'
+            && (resource.data.outDriver == myEmail() || resource.data.returnDriver == myEmail()));
+
+      // Lærere opretter anmodninger uden bus og chauffør.
+      allow create: if isAdmin()
+        || (isTeacher()
+            && request.resource.data.createdBy == myEmail()
+            && request.resource.data.status == 'pending'
+            && request.resource.data.outBus == '' && request.resource.data.returnBus == ''
+            && request.resource.data.outDriver == '' && request.resource.data.returnDriver == '');
+
+      // Lærere kan ændre og annullere egne, åbne ture – ikke godkende eller tildele.
+      allow update: if isAdmin()
+        || (isTeacher()
+            && resource.data.createdBy == myEmail()
+            && resource.data.status in ['pending', 'changed', 'approved']
+            && request.resource.data.status in ['pending', 'changed', 'cancelled']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(teacherFields()));
+
+      allow delete: if isAdmin();
+    }
+
+    // Ændringshistorik: alle brugere kan skrive i eget navn; kun admin kan læse.
+    match /logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isUser() && request.resource.data.byEmail == myEmail();
+      allow update, delete: if false;
+    }
+  }
+}

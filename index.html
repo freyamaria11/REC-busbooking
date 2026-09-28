@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Efterskole Busbooking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Public+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Login -->
+  <div id="loginScreen" class="login"></div>
+
+  <!-- Selve appen (vises efter login) -->
+  <div id="appShell" hidden>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v2M16 18v2"/><circle cx="8" cy="14.5" r=".6" fill="currentColor"/><circle cx="16" cy="14.5" r=".6" fill="currentColor"/></svg>
+          </span>
+          <span>BUSBOOKING<small>Efterskolen</small></span>
+        </div>
+        <div class="userbox">
+          <div class="who"><b id="userName"></b><span id="userRole"></span></div>
+          <button class="btn btn-sm" data-act="logout">Log ud</button>
+        </div>
+      </div>
+    </header>
+    <main id="view"></main>
+  </div>
+
+  <dialog id="modal"></dialog>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="firebase-config.js"></script>
+  <script src="app.js"></script>
+  <script type="module">
+    // Firebase indlæses kun, når firebase-config.js er udfyldt.
+    if (window.BUSBOOKING_FIREBASE) import("./firebase.js").catch(err => {
+      console.error(err);
+      window.Busbooking.setAuth({ screen: "error", message: "Kunne ikke indlæse Firebase: " + err.message });
+    });
+  </script>
+</body>
+</html>
